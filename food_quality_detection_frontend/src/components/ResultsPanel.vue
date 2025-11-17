@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { AnalysisResult } from '@/services/api'
+/** PUBLIC_INTERFACE: ResultsPanel displays the latest analysis result (quality, confidence, indicators),
+ * while handling loading and error states. Pass `result` as null before analysis.
+ */
 defineProps<{
   result: AnalysisResult | null
   loading?: boolean

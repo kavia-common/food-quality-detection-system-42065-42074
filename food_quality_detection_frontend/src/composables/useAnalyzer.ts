@@ -1,8 +1,9 @@
 import { ref, computed } from 'vue'
-import { analyzeImage, isMockMode, type AnalyzeResponse, type AnalysisResult } from '@/services/api'
+import { analyzeImage, isMockMode, loadAssessmentFromFile, type AnalyzeResponse, type AnalysisResult } from '@/services/api'
 
 const MAX_FILE_SIZE_MB = 15
 const SUPPORTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+const ASSESSMENT_MIME_TYPES = ['application/json']
 
 export function useAnalyzer() {
   const file = ref<File | null>(null)
@@ -65,6 +66,23 @@ export function useAnalyzer() {
   }
 
   // PUBLIC_INTERFACE
+  async function loadAssessment(file: File) {
+    /** Load an assessment JSON file and set it as the current result. */
+    loading.value = true
+    error.value = null
+    try {
+      const res = await loadAssessmentFromFile(file)
+      if (res.ok) {
+        result.value = res.data
+      } else {
+        error.value = res.error || 'Invalid assessment file'
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // PUBLIC_INTERFACE
   function toggleMockMode(on: boolean) {
     /** Toggle mock mode for UI testing when no backend is reachable. Note: Actual API service uses VITE_API_BASE; this toggle is a UI hint. */
     mockMode.value = on
@@ -84,7 +102,9 @@ export function useAnalyzer() {
     analyze,
     reset,
     toggleMockMode,
+    loadAssessment,
     SUPPORTED_TYPES,
-    MAX_FILE_SIZE_MB
+    MAX_FILE_SIZE_MB,
+    ASSESSMENT_MIME_TYPES,
   }
 }

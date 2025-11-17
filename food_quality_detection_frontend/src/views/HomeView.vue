@@ -7,16 +7,26 @@ import { computed } from 'vue'
 
 const {
   file, previewUrl, loading, error, result, mockMode,
-  canAnalyze, setFile, analyze, reset, toggleMockMode, MAX_FILE_SIZE_MB, SUPPORTED_TYPES
+  canAnalyze, setFile, analyze, reset, toggleMockMode, MAX_FILE_SIZE_MB, SUPPORTED_TYPES, ASSESSMENT_MIME_TYPES, loadAssessment
 } = useAnalyzer()
 
 const accept = computed(() => SUPPORTED_TYPES.join(','))
+const assessmentAccept = computed(() => ASSESSMENT_MIME_TYPES.join(','))
+
 function onSelect(f: File) { setFile(f) }
 function onAnalyze() { analyze() }
 function onReset() { reset() }
 function onFeedback(payload: { correction?: 'Fresh'|'Stale'|'Spoiled'|''; notes: string }) {
   // Stub: Wire up to backend endpoint when available
   console.info('Feedback submitted', payload)
+}
+async function onAssessmentPick(e: Event) {
+  const input = e.target as HTMLInputElement
+  const f = input.files && input.files[0]
+  if (!f) return
+  await loadAssessment(f)
+  // clear chosen file to allow re-select same file if needed
+  input.value = ''
 }
 </script>
 
@@ -44,6 +54,11 @@ function onFeedback(payload: { correction?: 'Fresh'|'Stale'|'Spoiled'|''; notes:
             <button class="button button-danger" @click="onReset" aria-label="Clear image">Clear</button>
           </div>
         </div>
+
+        <div class="assessment-loader">
+          <label for="assessment-input" class="muted">Or load an existing assessment (.json):</label>
+          <input id="assessment-input" class="input" type="file" :accept="assessmentAccept" @change="onAssessmentPick" />
+        </div>
       </div>
     </div>
 
@@ -66,4 +81,6 @@ function onFeedback(payload: { correction?: 'Fresh'|'Stale'|'Spoiled'|''; notes:
 .preview img { display: block; width: 100%; height: auto; object-fit: cover; }
 .buttons { display: flex; gap: .5rem; flex-wrap: wrap; }
 .feedback { margin-top: .5rem; }
+.assessment-loader { display: grid; gap: .35rem; }
+.muted { color: #6b7280; }
 </style>

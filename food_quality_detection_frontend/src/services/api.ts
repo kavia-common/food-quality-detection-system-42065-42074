@@ -129,3 +129,45 @@ export async function analyzeImage(
 
   return withTimeout(req, opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS, controller)
 }
+
+// PUBLIC_INTERFACE
+export async function loadAssessmentFromFile(file: File): Promise<AnalyzeResponse> {
+  /** Load an existing assessment JSON file from the user and coerce it into AnalysisResult.
+   * The JSON should contain: { quality: 'Fresh'|'Stale'|'Spoiled', confidence: number (0..1), indicators: [{name,value,unit?}] }
+   */
+  type RawIndicator = { name?: unknown; value?: unknown; unit?: unknown }
+  type RawAssessment = { quality?: unknown; confidence?: unknown; indicators?: unknown }
+
+  const isValidQuality = (q: unknown): q is AnalysisResult['quality'] =>
+    q === 'Fresh' || q === 'Stale' || q === 'Spoiled'
+
+  const toIndicator = (ri: RawIndicator): Indicator | null => {
+    if (!ri || typeof ri !== 'object') return null
+    if (typeof ri.name !== 'string') return null
+    const valueNum = Number((ri as { value?: unknown }).value)
+    if (!Number.isFinite(valueNum)) return null
+    const unitVal = (ri as { unit?: unknown }).unit
+    return { name: ri.name, value: valueNum, unit: typeof unitVal === 'string' ? unitVal : undefined }
+  }
+
+  try {
+    const text = await file.text()
+    const parsed = JSON.parse(text) as RawAssessment | null
+    if (!parsed || typeof parsed !== 'object') return { ok: false, error: 'Invalid JSON file' }
+
+    const quality = parsed.quality
+    if (!isValidQuality(quality)) return { ok: false, error: 'Missing or invalid "quality" in file' }
+
+    const conf = Number(parsed.confidence)
+    const confidence = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : 0
+
+    const rawIndicators = Array.isArray(parsed.indicators) ? (parsed.indicators as RawIndicator[]) : []
+    const indicators: Indicator[] = rawIndicators.map(toIndicator).filter((i): i is Indicator => i !== null)
+
+    const normalized: AnalysisResult = { quality, confidence, indicators }
+    return { ok: true, data: normalized }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Failed to parse JSON'
+    return { ok: false, error: msg }
+  }
+}
